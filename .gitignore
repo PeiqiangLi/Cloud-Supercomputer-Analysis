@@ -40,3 +40,5 @@ vignettes/*.pdf
 
 # Data of file
 data/
+docs/backup
+reports/*.log
