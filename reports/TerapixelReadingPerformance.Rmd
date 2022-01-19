@@ -14,22 +14,9 @@ library(ProjectTemplate)
 load.project()
 ```
 
-- Which event types dominate task runtimes?
-- What is the interplay between GPU temperature and performance?
-- What is the interplay between increased power draw and render time?
-  + Can we quantify the variation in computation requirements for particular tiles?
-- Can we identify particular GPU cards (based on their serial numbers) whose performance differs to other cards? (i.e. - - perpetually slow cards).
-- What can we learn about the efficiency of the task scheduling process?
-
-- **TotalRender** is the entire task
-- **Render** is when the image tile is is being rendered
-- **Saving Config** is simply a measure of configuration overhead
-- **Tiling** is where post processing of the rendered tile is taking place
-- **Uploading** is where the output from post processing is uploaded to Azure Blob Storage
-
 # Introduce
 
-"Cloud computing refers to both the applications delivered as services over the Internet and the hardware and systems software in the data centers that provide those services"\cite{ref1}.Cloud computing concentrates computing and storage at the heart of the service, and high-bandwidth connections are adopted to link high-performance machines, so that all these resources could be carefully managed. The user sends a computing request to the cloud computing service and obtains the final result\cite{ref1}. In this project, Cloud (super)computing is used for high quality terapixel visualization. The visualization of trillions of pixels requires powerful computing resources. Therefore, cloud-based supercomputer resources provide greater flexibility for visualization.
+"Cloud computing refers to both the applications delivered as services over the Internet and the hardware and systems software in the data centers that provide those services"\cite{ref1}.Cloud computing concentrates computing and storage at the heart of the service, and high-bandwidth connections are adopted to link high-performance machines, so that all these resources could be carefully managed. The user sends a computing request to the cloud computing service and obtains the final result\cite{ref2}. In this project, Cloud (super)computing is used for high quality terapixel visualization. The visualization of trillions of pixels requires powerful computing resources. Therefore, cloud-based supercomputer resources provide greater flexibility for visualization.
 
 # Methodology
 
@@ -43,12 +30,21 @@ README file will be used to record the analysis steps of the project and the rep
 
 # Business Understanding
 
-[The realistic terapixel visualization of the city of Newcastle upon Tyne](http://terapixel.wasabi.1024.s3.eu-central-1.wasabisys.com/vtour/index.html) is  calculated by cloud-based supercomputer resources. 
+[The realistic terapixel visualization of the city of Newcastle upon Tyne](http://terapixel.wasabi.1024.s3.eu-central-1.wasabisys.com/vtour/index.html) is calculated by cloud-based supercomputer resources. In addition, the rendered 3D visual city also supports daily updates, hence it is necessary to evaluate the scalable architecture of cloud supercomputer for optimal performance.
+
+
+
 The project detail see [link] (https://github.com/NewcastleDataScience/StudentProjects202122/blob/master/TeraScope/Summary.md).
 
-```{r}
-head(application.checkpoints)
+# Data Understanding
+
+The dataset collected from the project link above. It contains the running information of ```r length(unique(gpu$hostname))`` 1024 GPU nodes. The running task is divided into three parts, which are used to render the visualization output of level 4, 8 and 12 respectively. In this dataset we can get detailed information about the performance timings of the render application, the performance of the GPU card, and which part of the image is being rendered in each task. The size of the dataset, the number of fields and the specific explanations are shown in the following tables:
+
+```{r, include=FALSE}
+dim(application.checkpoints)
 ```
+
+The application.checkpoints dataset contains 660400 data and 6 fields.
 
 \begin{table}[ht]
 \centering
@@ -64,9 +60,31 @@ head(application.checkpoints)
   6 & taskId &  ID of the Azure batch task. \\ 
   \hline
 \end{tabular}
-\caption{Table information of gpu.csv} 
+\caption{dataset information of application.checkpoints} 
 \label{tab4}
 \end{table}
+
+The explain of `eventName` values:
+
+- **TotalRender** is the entire task.
+- **Render** is when the image tile is is being rendered.
+- **Saving Config** is simply a measure of configuration overhead.
+- **Tiling** is where post processing of the rendered tile is taking place.
+- **Uploading** is where the output from post processing is uploaded to Azure Blob Storage.
+
+examples:
+
+```{r}
+head(application.checkpoints)
+```
+
+\newpage
+
+```{r, include=FALSE}
+dim(gpu)
+```
+
+The GPU dataset contains 1543681 data and 8 fields.
 
 \begin{table}[ht]
 \centering
@@ -84,11 +102,23 @@ head(application.checkpoints)
   8 & gpuMemUtilPerc & Percent utilisation of the GPU memory. \\ 
    \hline
 \end{tabular}
-\caption{Table information of gpu.csv} 
+\caption{dataset information of gpu.csv} 
 \label{tab4}
 \end{table}
 
-Table information of **task-x-y.csv**:
+examples:
+
+```{r}
+head(gpu)
+```
+
+---
+
+```{r, include=FALSE}
+dim(task.x.y)
+```
+
+The task dataset contains 65793 data and 5 fields and the specific information of **task-x-y.csv**:
 
 - **jobId**: Id of the Azure batch job.
 - **taskId**: ID of the Azure batch task.
@@ -96,15 +126,42 @@ Table information of **task-x-y.csv**:
 - **y**: Y co-ordinate of the image tile being rendered.
 - **level**: The visualisation created is a zoomable "google maps style" map. In total we create 12 levels. Level 1 is zoomed right out and level 12 is zoomed right in. You will only see levels 4, 8 and 12 in the data as the intermediate level are derived in the tiling process.
 
-## Including Plots
+examples:
 
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r}
+head(task.x.y)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+# Data Preparation
+
+# Data Analysis
+
+## The event types dominate task runtimes
+
+
+
+```{r}
+mean_task_time %>% mutate(eventType = fct_reorder(eventType,duration)) %>%
+  ggplot(aes(x=eventType, y=duration)) +
+    geom_bar(stat="identity",fill="#1380A1") +
+    coord_flip() +
+    theme_ipsum(base_family = "Helvetica") +
+    theme(
+      panel.grid.minor.y = element_blank(),
+      panel.grid.major.y = element_blank(),
+      panel.grid.major.x = element_line(),
+      panel.grid.minor.x = element_line(),
+      plot.title = element_text(size=20),
+      legend.position="none"
+    ) +
+    ggtitle("Event types occupy task runtimes(s)") +
+    xlab("") +
+    ylab("")
+```
+
+# Conclusoin
+
+
 
 \newpage
 
