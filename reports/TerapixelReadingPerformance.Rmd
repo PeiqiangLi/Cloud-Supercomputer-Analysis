@@ -41,7 +41,7 @@ The project detail see [link] (https://github.com/NewcastleDataScience/StudentPr
 The dataset collected from the project link above. It contains the running information of ```r length(unique(gpu$hostname))`` 1024 GPU nodes. The running task is divided into three parts, which are used to render the visualization output of level 4, 8 and 12 respectively. In this dataset we can get detailed information about the performance timings of the render application, the performance of the GPU card, and which part of the image is being rendered in each task. The size of the dataset, the number of fields and the specific explanations are shown in the following tables:
 
 ```{r, include=FALSE}
-dim(application.checkpoints)
+# dim(application.checkpoints)
 ```
 
 The application.checkpoints dataset contains 660400 data and 6 fields.
@@ -56,17 +56,17 @@ The application.checkpoints dataset contains 660400 data and 6 fields.
   2 & hostname & Hostname of the virtual machine auto-assigned by the Azure batch system. \\ 
   3 & eventName & Name of the event occuring within the rendering application. \\ 
   4 & eventType &  Possible Values: "START", "STOP" \\ 
-  5 & jobId &  ID of the Azure batch job. \\ 
+  5 & jobId &  ID of the Azure batch job(corresponding to three job tasks). \\ 
   6 & taskId &  ID of the Azure batch task. \\ 
   \hline
 \end{tabular}
 \caption{dataset information of application.checkpoints} 
-\label{tab4}
+\label{tab1}
 \end{table}
 
 The explain of `eventName` values:
 
-- **TotalRender** is the entire task.
+- **TotalRender** is the entire task(sum of other events running time).
 - **Render** is when the image tile is is being rendered.
 - **Saving Config** is simply a measure of configuration overhead.
 - **Tiling** is where post processing of the rendered tile is taking place.
@@ -81,7 +81,7 @@ head(application.checkpoints)
 \newpage
 
 ```{r, include=FALSE}
-dim(gpu)
+# dim(gpu)
 ```
 
 The GPU dataset contains 1543681 data and 8 fields.
@@ -103,7 +103,7 @@ The GPU dataset contains 1543681 data and 8 fields.
    \hline
 \end{tabular}
 \caption{dataset information of gpu.csv} 
-\label{tab4}
+\label{tab2}
 \end{table}
 
 examples:
@@ -115,7 +115,7 @@ head(gpu)
 ---
 
 ```{r, include=FALSE}
-dim(task.x.y)
+# dim(task.x.y)
 ```
 
 The task dataset contains 65793 data and 5 fields and the specific information of **task-x-y.csv**:
@@ -134,11 +134,55 @@ head(task.x.y)
 
 # Data Preparation
 
+```r
+table(duplicated(application.checkpoints))
+table(duplicated(task.x.y))
+table(duplicated(gpu))
+```
+
+At the First, We need to make sure that the dataset is not affected by duplicate data. We found that the dataset of application.checkpoints have 2470 duplicate data, and the gpu dataset have 9 duplicate data. After remove the duplicate data the following information can be summarized.
+
+```r
+table(task.x.y$jobId)
+```
+
+1. The task.x.y dataset contains 65793 data.
+    - These all 65793 tasks is undering the 3 jobs.
+2. The application.checkpoints dataset contains 657930 data.
+    - every task have ten events: "Tiling"-"START" and "STOP"
+  "Saving Config"-"START" and "START"
+  "Render"-"START" and "START"
+  "TotalRender"-"START" and "START"
+  "Uploading"-"START" and "START"
+3. the gpu dataset contains 1543672 data.
+    - every gpu have a unique hostname.
+
+```r
+unique(task.x.y$jobId)
+# find how many gpu render this level
+length(unique(task.x.y[task.x.y$level==12,]$hostname))
+length(unique(task.x.y[task.x.y$level==4,]$hostname))
+length(unique(task.x.y[task.x.y$level==8,]$hostname))
+```
+
+The 3 `jobId` corresponding to the rendering of 3 levels.
+
+- "1024-lvl12-7e026be3-5fd0-48ee-b7d1-abd61f747705", the rendering of level 12, have 65536 task records, 1024 gpu rendering.
+- "1024-lvl4-90b0c947-dcfc-4eea-a1ee-efe843b698df", the rendering of level 4, have 1 task records, 1 gpu rendering.
+- "1024-lvl8-5ad819e1-fbf2-42e0-8f16-a3baca825a63", the rendering of level 8, have 256 task records, 256 gpu rendering.
+
 # Data Analysis
 
 ## The event types dominate task runtimes
 
-
+```{r}
+ggplot(task_time,aes( y = duration, x = eventName, fill = eventName )) +
+  geom_boxplot() + 
+  theme_ipsum(base_family = "Helvetica") +
+  ggtitle("Event types occupy task runtimes(s)") +
+  xlab("") +
+  ylab("")
+```
 
 ```{r}
 mean_task_time %>% mutate(eventType = fct_reorder(eventType,duration)) %>%
@@ -159,6 +203,128 @@ mean_task_time %>% mutate(eventType = fct_reorder(eventType,duration)) %>%
     ylab("")
 ```
 
+```{r}
+ggpairs(gpu_performance,columns=c(7,10,11,12,13)) +
+  ggtitle("Mean task running time vs GPU Info")
+```
+
+## Interplay between GPU temperature and performance
+
+It is very difficult to measure the performance of GPU. Therefore, the power draw, percent utilisation of GPU and percent utilisation of GPU memory and the average task rendering duration of each GPU are used to represent GPU performance. The average task rendering duration comes from the number of tasks rendered by the GPU and the sum of the duration of all these tasks.
+
+```{r,out.width = '80%'}
+gpu_utilization = gpu %>% filter(gpuUtilPerc !=0 & gpuMemUtilPerc !=0) %>%
+  filter(hostname == '8b6a0eebc87b4cb2b0539e81075191b900000D') %>%
+  select(hostname,powerDrawWatt,gpuTempC,gpuUtilPerc,gpuMemUtilPerc)
+  temp_power = ggplot(data=gpu_utilization, 
+       mapping=aes(x = gpuTempC, y = powerDrawWatt)) + 
+  xlab("GPU Temperature in Celsius") +
+  ylab("Power draw in watt") +
+  geom_point(alpha = 0.6)
+  
+  temp_util = ggplot(data=gpu_utilization, 
+       mapping=aes(x = gpuTempC, y = gpuUtilPerc)) + 
+  xlab("GPU Temperature in Celsius") +
+  ylab("GPU util percent") +
+  geom_point(alpha = 0.6)
+  
+  temp_mem = ggplot(data=gpu_utilization, 
+       mapping=aes(x = gpuTempC, y = gpuMemUtilPerc)) + 
+  xlab("GPU Temperature in Celsius") +
+  ylab("Memory percent") +
+  geom_point(alpha = 0.6)
+  
+  temp_task_duration = ggplot(data=gpu_performance, 
+       mapping=aes(x = mean_gpuTempC, y = each_task_duration)) + 
+  ylab("Task mean duration") +
+  xlab("Mean Temperature of the GPU in Celsius") +
+  geom_point(alpha = 0.6)
+```
+
+```{r, out.width = '80%'}
+ggarrange(temp_power,temp_util, 
+          temp_mem, temp_task_duration,
+          common.legend=T,
+          labels = c("A", "B","C","D"),
+          ncol = 2, nrow = 2)
+          # legend = "right"
+```
+
+As a result, based on these four figures, there is no obvious correlation between GPU temperature and GPU performance.
+
+## Interplay between increased power draw and render time
+
+```{r}
+power_duration1 = ggplot(data=gpu_performance,
+       mapping=aes(x = mean_powerDrawWatt, y = each_task_duration)) +
+  xlab("Mean power draw of rendering") +
+  ylab("Task average duration") +
+  geom_point(alpha = 0.6)
+
+power_duration2 = gpu_performance %>% filter(each_task_duration >= 42.5) %>%
+  ggplot(mapping=aes(x = mean_powerDrawWatt, y = each_task_duration)) + 
+  geom_smooth(formula = y ~ x, method='lm',color='red') +
+  stat_cor(method = "spearman") +
+  xlab("Mean power draw of rendering") +
+  ylab("Task average duration >=42.5") +
+  geom_point(alpha = 0.6)
+
+power_duration3 = gpu_performance %>% filter(each_task_duration < 42.5) %>%
+  ggplot(mapping=aes(x = mean_powerDrawWatt, y = each_task_duration)) + 
+  geom_smooth(formula = y ~ x, method='lm',color='red') +
+  stat_cor(method = "spearman") +
+  xlab("Mean power draw of rendering") +
+  ylab("Task average duration < 42.5") +
+  geom_point(alpha = 0.6)
+
+# an example
+# power_duration4 = gpu %>% filter(gpuUtilPerc !=0 & gpuMemUtilPerc !=0) %>%
+#   filter(hostname == '8b6a0eebc87b4cb2b0539e81075191b900000D') %>%
+#   select(hostname,powerDrawWatt,gpuTempC,gpuUtilPerc,gpuMemUtilPerc)
+
+mean_runing_powerDrawWatt = as.data.frame(table(round(gpu_mean$mean_powerDrawWatt)))
+mean_runing_powerDrawWatt = data.frame(powerDrawWatt = mean_runing_powerDrawWatt$Var1,count = mean_runing_powerDrawWatt$Freq)
+power_duration4 = ggplot(mean_runing_powerDrawWatt,aes(powerDrawWatt, count)) +
+  geom_bar(stat="identity") +
+  xlab("Mean power draw of rendering") +
+  ylab("counts of gpu")
+```
+
+```{r, out.width = '80%'}
+ggarrange(power_duration1,power_duration2, 
+          power_duration3, power_duration4,
+          common.legend=T,
+          labels = c("A", "B","C","D"),
+          ncol = 2, nrow = 2)
+          # legend = "right"
+```
+
+```{r}
+task_time %>% filter(hostname == '8b6a0eebc87b4cb2b0539e81075191b900000D' & eventName == "TotalRender") %>%
+  select(duration,timestamp.y) %>%
+  ggplot(aes(timestamp.y, duration)) +
+  geom_bar(stat="identity")+
+  xlab("task duration") +
+  ylab("start time of task")
+# found some task have the same duration
+```
+
+## Identify particular GPU cards 
+
+```{r}
+ggplot(data=gpu_performance, 
+       mapping=aes(x = each_task_duration, y = mean_gpuMemUtilPerc)) + 
+  xlab("Task mean duration running by this GPU") +
+  ylab("Mean Percent utilisation of the GPU memory") +
+  geom_point(alpha = 0.6)
+# and then k Means
+duration_memory = gpu_performance %>% select(gpuSerial,each_task_duration,mean_gpuMemUtilPerc)
+BreastCancer.pca = prcomp(x = BreastCancer_raw[,-10], scale. = T)
+km.BreastCancer = kmeans(BreastCancer_raw[,-10],2,iter.max=50,nstart=20)
+plot(BreastCancer.pca$x[,1], BreastCancer.pca$x[,2], xlab="First PC", ylab="Second PC",
+     col=km.BreastCancer$cluster, pch=km.BreastCancer$cluster, main = 'K-means Algorithm')
+```
+
 # Conclusoin
 
 
@@ -168,6 +334,7 @@ mean_task_time %>% mutate(eventType = fct_reorder(eventType,duration)) %>%
 \begin{thebibliography}{99}  
 \bibitem{ref1}Armbrust, M., Fox, A., Griffith, R., Joseph, A.D., Katz, R., Konwinski, A., Lee, G., Patterson, D., Rabkin, A., Stoica, I. and Zaharia, M., 2010. A view of cloud computing. Communications of the ACM, 53(4), pp.50-58.
 \bibitem{ref2}Hayes, B., 2008. Cloud computing.
+
 \bibitem{ref3}Christensen, R., 2006. Log-linear models and logistic regression. Springer Science \& Business Media.
 \bibitem{ref4}McLeod, A.I. and Xu, C., 2010. bestglm: Best subset GLM. URL http://CRAN. R-project. org/package= bestglm.
 \bibitem{ref5}McNeish, D.M., 2015. Using lasso for predictor selection and to assuage overfitting: A method long overlooked in behavioral sciences. Multivariate Behavioral Research, 50(5), pp.471-484.
