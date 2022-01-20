@@ -9,7 +9,7 @@ knitr::opts_chunk$set(echo = FALSE,fig.align = 'center', out.width = "60%")
 knitr::opts_knit$set(root.dir = '/Users/lipeiqiang/Documents/RWorks/Cloud_Computing')
 ```
 
-```{r ProjectTemplate, include=FALSE}
+```{r loadProject, include=FALSE}
 library(ProjectTemplate)
 load.project()
 ```
@@ -32,9 +32,9 @@ README file will be used to record the analysis steps of the project and the rep
 
 [The realistic terapixel visualization of the city of Newcastle upon Tyne](http://terapixel.wasabi.1024.s3.eu-central-1.wasabisys.com/vtour/index.html) is calculated by cloud-based supercomputer resources. In addition, the rendered 3D visual city also supports daily updates, hence it is necessary to evaluate the scalable architecture of cloud supercomputer for optimal performance.
 
+The image rendering process is mainly completed by GPU. Therefore, 
 
-
-The project detail see [link] (https://github.com/NewcastleDataScience/StudentProjects202122/blob/master/TeraScope/Summary.md).
+The project detail see [link](https://github.com/NewcastleDataScience/StudentProjects202122/blob/master/TeraScope/Summary.md).
 
 # Data Understanding
 
@@ -300,30 +300,141 @@ ggarrange(power_duration1,power_duration2,
 ```
 
 ```{r}
-task_time %>% filter(hostname == '8b6a0eebc87b4cb2b0539e81075191b900000D' & eventName == "TotalRender") %>%
-  select(duration,timestamp.y) %>%
+task_time %>% filter(hostname == '8b6a0eebc87b4cb2b0539e81075191b900000D' & eventName == "TotalRender") %>% select(duration,timestamp.y) %>%
   ggplot(aes(timestamp.y, duration)) +
   geom_bar(stat="identity")+
-  xlab("task duration") +
-  ylab("start time of task")
-# found some task have the same duration
+  xlab("start time of task") +
+  ylab("task duration")
+# found some task have the same duration 4a79b6d2616049edbf06c6aa58ab426a000002
 ```
 
 ## Identify particular GPU cards 
 
-```{r}
-ggplot(data=gpu_performance, 
-       mapping=aes(x = each_task_duration, y = mean_gpuMemUtilPerc)) + 
-  xlab("Task mean duration running by this GPU") +
-  ylab("Mean Percent utilisation of the GPU memory") +
-  geom_point(alpha = 0.6)
+```{r K-means,fig.width=8,out.width='80%'}
+par(mfrow=c(1,2)) 
+# ggplot(data=gpu_performance, 
+#        mapping=aes(x = each_task_duration, y = mean_gpuMemUtilPerc)) + 
+#   xlab("Task mean duration running by this GPU") +
+#   ylab("Mean Percent utilisation of the GPU memory") +
+#   geom_point(alpha = 0.6)
 # and then k Means
-duration_memory = gpu_performance %>% select(gpuSerial,each_task_duration,mean_gpuMemUtilPerc)
-BreastCancer.pca = prcomp(x = BreastCancer_raw[,-10], scale. = T)
-km.BreastCancer = kmeans(BreastCancer_raw[,-10],2,iter.max=50,nstart=20)
-plot(BreastCancer.pca$x[,1], BreastCancer.pca$x[,2], xlab="First PC", ylab="Second PC",
-     col=km.BreastCancer$cluster, pch=km.BreastCancer$cluster, main = 'K-means Algorithm')
+duration_memory = gpu_performance %>% 
+  select(gpuSerial,each_task_duration,mean_gpuMemUtilPerc)
+duration_memory_pca = prcomp(x = duration_memory[,-1], scale. = T)
+km_duration_memory = kmeans(duration_memory[,-1],2,iter.max=50,nstart=20)
+plot(duration_memory_pca$x[,1], duration_memory_pca$x[,2], xlab="First PC", ylab="Second PC",
+     col=km_duration_memory$cluster, pch=km_duration_memory$cluster, main = 'K-means Algorithm')
+
+
+plot(duration_memory$each_task_duration, duration_memory$mean_gpuMemUtilPerc, 
+     xlab="each_task_duration", ylab="mean_gpuMemUtilPerc",
+     col=km_duration_memory$cluster, pch=km_duration_memory$cluster, main = 'K-means Algorithm')
 ```
+
+```{r}
+# par(mfrow=c(1,2)) # show tow graph in a line
+# plot(duration_memory_pca, type='l')
+# duration_memory$classify = km_duration_memory$cluster
+# duration_memory$gpuSerial = as.numeric(duration_memory$gpuSerial)
+# 
+# ## Fit the LDA classifier using the training data
+# lda_train=lda(classify~.,data=duration_memory[1:924,c(1,4)])
+# result = predict(lda_train, data.frame(gpuSerial = duration_memory$gpuSerial[925:1024]))
+# table(duration_memory$classify[925:1024], result$class) 
+# 
+# duration_memory$classify = duration_memory$classify-1
+# logreg_fit = glm(classify~., data= duration_memory[1:924,c(1,4)], family="binomial")
+# prob<-predict(logreg_fit,data.frame(gpuSerial = duration_memory$gpuSerial[925:1024]),type = "response")
+# pred<-ifelse(prob>=0.5,1,0)
+# table(duration_memory$classify[925:1024], pred) 
+```
+
+# What can we learn about the efficiency of the task scheduling process
+
+```{r}
+# taskId == "efad0c1e-213f-430b-9704-88e0cbffa6f8"
+gpu_powerDrawWatt = ggplot(gpu_task_example,aes(timestamp, powerDrawWatt)) +
+  geom_line(col="red")+
+  xlab("timestamp") +
+  ylab("powerDrawWatt")
+
+gpu_gpuTempC = ggplot(gpu_task_example,aes(timestamp, gpuTempC)) +
+  geom_line(col="red")+
+  xlab("timestamp") +
+  ylab("gpuTempC")
+
+gpu_gpuUtilPerc = ggplot(gpu_task_example,aes(timestamp, gpuUtilPerc)) +
+  geom_line(col="red")+
+  xlab("timestamp") +
+  ylab("gpuUtilPerc")
+
+gpu_gpuMemUtilPerc = ggplot(gpu_task_example,aes(timestamp, gpuMemUtilPerc)) +
+  geom_line(col="red")+
+  xlab("timestamp") +
+  ylab("gpuMemUtilPerc")
+
+ggarrange(gpu_powerDrawWatt,gpu_gpuTempC, 
+          gpu_gpuUtilPerc, gpu_gpuMemUtilPerc,
+          common.legend=T,
+          labels = c("A", "B","C","D"),
+          ncol = 2, nrow = 2)
+          # legend = "right"
+```
+
+```{r}
+ggplot(gpu_task_part,aes(timestamp, gpuUtilPerc)) +
+  geom_line(col="red")+
+  xlab("timestamp") +
+  ylab("gpuUtilPerc")
+```
+
+```{r}
+gpu_task_part %>%
+  ggplot(aes(timestamp,mean_powet)) +
+  geom_line(col="red")+
+  xlab("timestamp") +
+  ylab("gpuUtilPerc")
+```
+
+```{r}
+bbb = gpu_task_part_average[2:(length(gpu_task_part_average$taskId)-1),] %>% 
+ggplot(mapping=aes(x = duration, y = mean_temp)) +
+  geom_smooth(formula = y ~ x, method='lm',color='red') +
+  stat_cor(method = "spearman") +
+  xlab("Mean task duration of this gpu") +
+  ylab("temp when running this task") +
+  geom_point(alpha = 0.6)
+
+aaa = ggplot(gpu_task_part_average[-1,],mapping=aes(x = duration, y = mean_powet)) +
+  geom_smooth(formula = y ~ x, method='lm',color='red') +
+  stat_cor(method = "spearman") +
+  xlab("Mean task duration of this gpu") +
+  ylab("temp when running this task") +
+  geom_point(alpha = 0.6)
+
+ccc = ggplot(gpu_task_part_average[-1,],mapping=aes(x = duration, y = mean_gpuPerc)) +
+  geom_smooth(formula = y ~ x, method='lm',color='red') +
+  stat_cor(method = "spearman") +
+  xlab("Mean task duration of this gpu") +
+  ylab("temp when running this task") +
+  geom_point(alpha = 0.6)
+
+ddd = ggplot(gpu_task_part_average[-1],mapping=aes(x = duration, y = mean_memory)) +
+  geom_smooth(formula = y ~ x, method='lm',color='red') +
+  stat_cor(method = "spearman") +
+  xlab("Mean task duration of this gpu") +
+  ylab("temp when running this task") +
+  geom_point(alpha = 0.6)
+
+ggarrange(aaa,bbb, 
+          ccc, ddd,
+          common.legend=T,
+          labels = c("A", "B","C","D"),
+          ncol = 2, nrow = 2)
+          # legend = "right"
+```
+
+
 
 # Conclusoin
 

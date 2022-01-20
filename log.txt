@@ -1,0 +1,41 @@
+commit 9fdab2bdbd643f5f09229f292bf80f9bc933b171
+Author: peiqiangli <peiqiang02@126.com>
+Date:   Thu Jan 20 02:52:50 2022 +0000
+
+    several analysis
+
+commit e2fd66db53d72af36c2597c913e82967a2f37272
+Author: peiqiangli <peiqiang02@126.com>
+Date:   Wed Jan 19 01:09:16 2022 +0000
+
+    data preparation
+
+commit 198c1dc03949b977e98abfafc08a8525e2bca38f
+Author: peiqiangli <peiqiang02@126.com>
+Date:   Tue Jan 18 13:54:41 2022 +0000
+
+    add report
+
+commit 3f206973a6b153e8ff299172bdc78b14b96521b0
+Author: peiqiangli <peiqiang02@126.com>
+Date:   Fri Jan 14 22:54:55 2022 +0000
+
+    update gitignore
+
+commit 9de856ef02bc9666b81c5209e53594ecfb51d7ca
+Author: peiqiangli <peiqiang02@126.com>
+Date:   Fri Jan 14 22:48:45 2022 +0000
+
+    add gitignore
+
+commit 5547fce9e0e649cf5e51defd28cef65bd4f06acd
+Author: peiqiangli <peiqiang02@126.com>
+Date:   Fri Jan 14 22:46:49 2022 +0000
+
+    project templete
+
+commit a387ebedf11a1c99115c4cd44da88747b8677178
+Author: peiqiangli <peiqiang02@126.com>
+Date:   Fri Jan 14 22:45:30 2022 +0000
+
+    first commit
