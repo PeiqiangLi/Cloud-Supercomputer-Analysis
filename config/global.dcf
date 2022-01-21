@@ -8,7 +8,7 @@ munging: TRUE
 logging: FALSE
 logging_level: INFO
 load_libraries: TRUE
-libraries: reshape2, tidyverse, stringr, lubridate, hrbrthemes, bbplot, forcats, GGally, ggpubr
+libraries: reshape2, MASS, tidyverse, stringr, lubridate, hrbrthemes, bbplot, forcats, GGally, ggpubr
 as_factors: FALSE
 tables_type: tibble
 attach_internal_libraries: FALSE

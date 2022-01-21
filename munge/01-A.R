@@ -1,3 +1,4 @@
+select = dplyr::select
 # Clean the data
 
 # remove the duplicated data

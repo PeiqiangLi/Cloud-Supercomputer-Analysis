@@ -2,7 +2,7 @@
 
 # add the hostname to task
 task.x.y = task.x.y %>% 
-  left_join((application.checkpoints %>% select(hostname,taskId) %>% distinct(taskId,.keep_all = TRUE)),
+  left_join((application.checkpoints %>% dplyr::select(hostname,taskId) %>% distinct(taskId,.keep_all = TRUE)),
             by='taskId')
 
 # find the start and stop time and calculate the running duration

@@ -198,7 +198,7 @@ As we can see from the boxplot above, the running time of rendering occupies alm
 
 Before we look for the relationship between GPU temperature and performance, it is necessary to find a good target to measure the performance of GPU. In my opinion, the average execution time of each task by GPU is a good measure of its performance. The average task rendering duration comes from the number of tasks rendered by the GPU and the sum of the duration of all these tasks. In addition, temperature, power draw, core utilization and memory utilization of GPU also can be used to measure the performance of GPU.
 
-The relationship between these indexes and GPU operating temperature is shown in the figure below:
+The relationship between these metrics and GPU operating temperature is shown in the figure below:
 
 ```{r GPU temperature performance, out.width = '80%'}
 gpu_utilization = gpu %>% filter(gpuUtilPerc !=0 & gpuMemUtilPerc !=0) %>%
@@ -236,7 +236,7 @@ gpu_utilization = gpu %>% filter(gpuUtilPerc !=0 & gpuMemUtilPerc !=0) %>%
           # legend = "right"
 ```
 
-As a result, based on these four figures, there is no obvious correlation between GPU temperature and GPU performance. However, these four figures above is showing the average situation of all GPUs, so it's a good idea to find the relationship between GPU temperature and other targets in one particular gpu. Since the GPU is at a low temperature at the beginning of the first rendering task, the impact of the first rendering task on the statistical results will be removed here.
+As a result, based on these four figures, there is no obvious correlation between GPU temperature and GPU performance. However, these four figures above is showing the average situation of all GPUs, so it's a good idea to find the relationship between GPU temperature and other metrics in one particular gpu. Since the GPU is at a low temperature at the beginning of the first rendering task, the impact of the first rendering task on the statistical results will be removed here.
 
 ```{r certain GPU temperature performance}
 temp_duration_gpu = gpu_task_part_average[2:(length(gpu_task_part_average$taskId)-1),] %>% 
@@ -327,7 +327,7 @@ ggarrange(power_duration1,power_duration2,
 
 From the above figures, we can not find obviously relationship between pwer draw and task duration. But, we found the power draw of most GPUs are between 103-121 watts. Then, we take one gpu as an example, and find the relationship of durations and power draw.
 
-```{r}
+```{r durations and power draw}
 ggplot(gpu_task_part_average[-1,],mapping=aes(x = duration, y = mean_powet)) + 
   geom_smooth(formula = y ~ x, method='lm',color='red') + 
   stat_cor(method = "spearman") + 
@@ -342,7 +342,7 @@ Consequently, the longer the duration of the task, the higher its average power 
 
 When we take one GPU as an example, the duration of each task rendered by this GPU is distributed as shown in the figure below.
 
-```{r}
+```{r tasks of a gpu}
 task_time %>% filter(hostname == '8b6a0eebc87b4cb2b0539e81075191b900000D' & eventName == "TotalRender") %>% select(duration,timestamp.y) %>%
   ggplot(aes(timestamp.y, duration)) +
   geom_bar(stat="identity")+
@@ -350,23 +350,30 @@ task_time %>% filter(hostname == '8b6a0eebc87b4cb2b0539e81075191b900000D' & even
   ylab("task duration")
 # found some task have the same duration 4a79b6d2616049edbf06c6aa58ab426a000002
 ```
-Due to each task corresponds to the rendering of a specific tile. 
+Due to each task corresponds to the rendering of a specific tile. The duration of the task explains the changes in the calculation requirements of a specific tile. The outcomes tell us that, the duration of each task rendering by the gpu can be very different, the rendering time of each tile is also different.
+
+After the rendering time required for each tile corresponds to the coordinates of the pixel, we can get the following figure:
+
+```{r duration of each tile, out.width='80%'}
+ggplot(data=task.x.y_duration, aes(x=x, y=y, color = duration)) +
+  geom_point(size=1)
+```
+
+The outline of the Newcastle city map can be clearly observed. Some blocks are significantly darker than others, because tiles have the same true color are easy to render, tiles that contain building edge details take longer to render. This is why the calculation requirements of each task are different.
 
 ## Identify particular GPU cards 
 
-```{r}
+If there are performance differences between GPU cards, there will be some differences in the distribution of parameters between them. Thus, through the GPU running temperature, power draw, core utilization and memory utilization, we can find the GPU with significant differences.
+
+```{r pairs of gpu}
 ggpairs(gpu_performance,columns=c(7,10,11,12,13)) +
   ggtitle("Mean task running time vs GPU Info")
 ```
 
+Obviously, GPUs are divided into two categories by task duration and average memory utilization. The duration here refers to the average time each GPU takes to complete a task, the memory utilization refers to the average memory utilization percent by GPU in running these tasks. By using these two data, a clustering analysis of gpu can be carried out.
+
 ```{r K-means,out.width='80%'}
 par(mfrow=c(1,2)) 
-# ggplot(data=gpu_performance, 
-#        mapping=aes(x = each_task_duration, y = mean_gpuMemUtilPerc)) + 
-#   xlab("Task mean duration running by this GPU") +
-#   ylab("Mean Percent utilisation of the GPU memory") +
-#   geom_point(alpha = 0.6)
-# and then k Means
 duration_memory = gpu_performance %>% 
   select(gpuSerial,each_task_duration,mean_gpuMemUtilPerc)
 duration_memory_pca = prcomp(x = duration_memory[,-1], scale. = T)
@@ -379,27 +386,55 @@ plot(duration_memory$each_task_duration, duration_memory$mean_gpuMemUtilPerc,
      col=km_duration_memory$cluster, pch=km_duration_memory$cluster, main = 'K-means Algorithm')
 ```
 
-```{r}
+As a result, Whether in the PCA graph or the memory utilization vs task duration graph, The GPUs are clearly divided into two parts. Then, we are trying to identify the performance of these GPUs by their serial numbers. Firstly, the results of cluster analysis will be used as the category identification of GPUs, and The serial number will be converted to numeric type for discriminant analysis. 
+
+```{r, echo=TRUE}
+duration_memory$classify = km_duration_memory$cluster
+duration_memory$gpuSerial = as.numeric(duration_memory$gpuSerial)
+head(duration_memory[,c(1,4)])
+```
+
+LDA:
+
+```{r discriminant analysis}
 # par(mfrow=c(1,2)) # show tow graph in a line
 # plot(duration_memory_pca, type='l')
-# duration_memory$classify = km_duration_memory$cluster
-# duration_memory$gpuSerial = as.numeric(duration_memory$gpuSerial)
-# 
-# ## Fit the LDA classifier using the training data
-# lda_train=lda(classify~.,data=duration_memory[1:924,c(1,4)])
-# result = predict(lda_train, data.frame(gpuSerial = duration_memory$gpuSerial[925:1024]))
-# table(duration_memory$classify[925:1024], result$class) 
-# 
-# duration_memory$classify = duration_memory$classify-1
-# logreg_fit = glm(classify~., data= duration_memory[1:924,c(1,4)], family="binomial")
-# prob<-predict(logreg_fit,data.frame(gpuSerial = duration_memory$gpuSerial[925:1024]),type = "response")
-# pred<-ifelse(prob>=0.5,1,0)
-# table(duration_memory$classify[925:1024], pred) 
+
+## Fit the LDA classifier using the training data
+lda_train=lda(classify~.,data=duration_memory[1:924,c(1,4)])
+result = predict(lda_train, data.frame(gpuSerial = duration_memory$gpuSerial[925:1024]))
+table(duration_memory$classify[925:1024], result$class)
 ```
+
+924 GPU serial numbers are used as the training set, and the remaining 100 GPU serial numbers are used as the test set. The linear discriminant analysis was fitted to classify. It can be seen from the confusion matrix that the results are not satisfactory. Then, the quadratic discriminant analysis model and Logistic regression models were also used for classifying.
+
+QDA:
+
+```{r QDA}
+qda_train=qda(classify~.,data=duration_memory[1:924,c(1,4)])
+result = predict(qda_train, data.frame(gpuSerial = duration_memory$gpuSerial[925:1024]))
+table(duration_memory$classify[925:1024], result$class)
+```
+
+From the confusion matrix, we can see that most GPUs are correctly classified. The accuracy is 81%.
+
+logistic regression:
+
+```{r logistic regression}
+duration_memory$classify = duration_memory$classify-1
+logreg_fit = glm(classify~., data= duration_memory[1:924,c(1,4)], family="binomial")
+prob<-predict(logreg_fit,data.frame(gpuSerial = duration_memory$gpuSerial[925:1024]),type = "response")
+pred<-ifelse(prob>=0.5,1,0)
+table(duration_memory$classify[925:1024], pred)
+```
+
+From the confusion matrix that the results are also not satisfactory. 
 
 # What can we learn about the efficiency of the task scheduling process
 
-```{r}
+To understand the task scheduling process of GPU, it is useful to clarify the running cycle of each task. Generally speaking, the start and end time of each task is the task scheduling process of GPU. We can find this process by giving an example of task. The execution cycle of a task is as follows: 
+
+```{r example task scheduling}
 # taskId == "efad0c1e-213f-430b-9704-88e0cbffa6f8"
 gpu_powerDrawWatt = ggplot(gpu_task_example,aes(timestamp, powerDrawWatt)) +
   geom_line(col="red")+
@@ -429,39 +464,24 @@ ggarrange(gpu_powerDrawWatt,gpu_gpuTempC,
           # legend = "right"
 ```
 
-```{r}
+The figure above shows the GPU status when a task is executed. The core utilization of the gpu is a very good indication that the gpu is starting to actually perform the task. For this task, about 40% of the duration is in the process of task scheduling. In order to understand more clearly the task scheduling and the real execution time of the task, we can plot all tasks vs timestamp rendering by this GPU.
+
+```{r task scheduling of gpu}
 ggplot(gpu_task_part,aes(timestamp, gpuUtilPerc)) +
   geom_line(col="red")+
   xlab("timestamp") +
   ylab("gpuUtilPerc")
 ```
 
-```{r}
-gpu_task_part %>%
-  ggplot(aes(timestamp,mean_powet)) +
-  geom_line(col="red")+
-  xlab("timestamp") +
-  ylab("gpuUtilPerc")
-```
-
-
-```{r, out.width='80%'}
-ggplot(data=task.x.y_duration, aes(x=x, y=y, color = duration)) +
-  geom_point(size=1)
-```
+We can clearly see the gaps between each task and the time spent on task scheduling. After calculating, the total time of task scheduling accounts for about 25% of the time that the GPU executes all tasks. Therefore, if we can find a way to improve the efficiency of GPU task scheduling, it will shorten the overall rendering time to a great extent.
 
 # Conclusoin
 
-
-
+To sum up, in this project, We explored those factors that affect GPU rendering performance, we analyzed the relationship between the GPU metrics and adopted some classification models to identify particular GPU cards. We have illustrated the relationship between the GPU metrics very well by means of general and example analysis. Finally, in order to optimize the rendering performance of this architecture, it is a good approach to replace the poorly performing graphics card and improve the efficiency of gpu task scheduling.
 
 \newpage
 
 \begin{thebibliography}{99}  
 \bibitem{ref1}Armbrust, M., Fox, A., Griffith, R., Joseph, A.D., Katz, R., Konwinski, A., Lee, G., Patterson, D., Rabkin, A., Stoica, I. and Zaharia, M., 2010. A view of cloud computing. Communications of the ACM, 53(4), pp.50-58.
 \bibitem{ref2}Hayes, B., 2008. Cloud computing.
-
-\bibitem{ref3}Christensen, R., 2006. Log-linear models and logistic regression. Springer Science \& Business Media.
-\bibitem{ref4}McLeod, A.I. and Xu, C., 2010. bestglm: Best subset GLM. URL http://CRAN. R-project. org/package= bestglm.
-\bibitem{ref5}McNeish, D.M., 2015. Using lasso for predictor selection and to assuage overfitting: A method long overlooked in behavioral sciences. Multivariate Behavioral Research, 50(5), pp.471-484.
 \end{thebibliography}
