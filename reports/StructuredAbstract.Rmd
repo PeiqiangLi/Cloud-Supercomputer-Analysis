@@ -18,10 +18,18 @@ knitr::opts_chunk$set(echo = F)
 
 **Novelty:** The method of exploratory data analysis has been adopted to analyze the relationship between rendering performance and GPU metrics. In the analysis process, I first compare the overall situation, and then use a specific GPU as an example for comparison. Moreover, machine learning regression models are adopted to distinguish between different performance GPU types.
 
+\newpage
+
 ## Key Images
 
 \begin{figure}
     \centering
-    \includegraphics[width=0.8\textwidth]{../graphs/KeyImages.png}
+    \includegraphics[width=0.7\textwidth]{../graphs/KeyImages.png}
     \caption{Rendering time required for each tile corresponds to the coordinates of the pixel}
+\end{figure}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.8\textwidth]{../graphs/duration_metrics.png}
+    \caption{Mean task running time vs GPU metrics}
 \end{figure}

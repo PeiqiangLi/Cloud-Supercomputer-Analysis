@@ -55,7 +55,7 @@ The application.checkpoints dataset contains 660400 data and 6 fields.
 1 & timestamp & Timestamp \\ 
   2 & hostname & Hostname of the virtual machine auto-assigned by the Azure batch system. \\ 
   3 & eventName & Name of the event occuring within the rendering application. \\ 
-  4 & eventType &  Possible Values: "START", "STOP" \\ 
+  4 & eventType & The "START" and "STOP" type of events. \\ 
   5 & jobId &  ID of the Azure batch job(corresponding to three job tasks). \\ 
   6 & taskId &  ID of the Azure batch task. \\ 
   \hline
@@ -66,7 +66,7 @@ The application.checkpoints dataset contains 660400 data and 6 fields.
 
 The explain of `eventName` values:
 
-- **TotalRender** is the entire task(sum of other events running time).
+- **TotalRender** is the entire task duration(sum of other events running time).
 - **Render** is when the image tile is is being rendered.
 - **Saving Config** is simply a measure of configuration overhead.
 - **Tiling** is where post processing of the rendered tile is taking place.
@@ -121,7 +121,7 @@ head(gpu)
 The task dataset contains 65793 data and 5 fields and the specific information of **task-x-y.csv**:
 
 - **jobId**: Id of the Azure batch job.
-- **taskId**: ID of the Azure batch task.
+- **taskId**: Id of the Azure batch task.
 - **x**: X co-ordinate of the image tile being rendered.
 - **y**: Y co-ordinate of the image tile being rendered.
 - **level**: The visualisation created is a zoomable "google maps style" map. In total we create 12 levels. Level 1 is zoomed right out and level 12 is zoomed right in. You will only see levels 4, 8 and 12 in the data as the intermediate level are derived in the tiling process.
@@ -159,7 +159,7 @@ The 3 `jobId` corresponding to the rendering of 3 levels.
 
 # Data Analysis
 
-Before expanding the analysis task. 
+Before expanding the analysis task. We have did some calculations on the dataset. We found the duration of each task and its event, the gpu metrics information of each task, and find the GPU running state of specific task duration.
 
 ## The event types dominate task runtimes
 
@@ -196,7 +196,7 @@ As we can see from the boxplot above, the running time of rendering occupies alm
 
 ## Interplay between GPU temperature and performance
 
-Before we look for the relationship between GPU temperature and performance, it is necessary to find a good target to measure the performance of GPU. In my opinion, the average execution time of each task by GPU is a good measure of its performance. The average task rendering duration comes from the number of tasks rendered by the GPU and the sum of the duration of all these tasks. In addition, temperature, power draw, core utilization and memory utilization of GPU also can be used to measure the performance of GPU.
+Before we look for the relationship between GPU temperature and performance, it is necessary to find a good metric to measure the performance of GPU. In my opinion, the average execution time of each task by GPU is a good measure of its performance. The average task rendering duration comes from the number of tasks rendered by the GPU and the sum of the duration of all these tasks. In addition, temperature, power draw, core utilization and memory utilization of GPU also can be used to measure the performance of GPU.
 
 The relationship between these metrics and GPU operating temperature is shown in the figure below:
 
@@ -359,7 +359,7 @@ ggplot(data=task.x.y_duration, aes(x=x, y=y, color = duration)) +
   geom_point(size=1)
 ```
 
-The outline of the Newcastle city map can be clearly observed. Some blocks are significantly darker than others, because tiles have the same true color are easy to render, tiles that contain building edge details take longer to render. This is why the calculation requirements of each task are different.
+The outline of the Newcastle city map can be clearly observed. Some blocks are significantly darker than others, because tiles have the same true color are easy to render, tiles that contain building edge details take longer to render. This is why the calculation requirements of each task are different. In addition, there is a darker block in the lower left corner, which belongs to level 8 and is rendered by 256 GPUs.
 
 ## Identify particular GPU cards 
 
@@ -367,7 +367,7 @@ If there are performance differences between GPU cards, there will be some diffe
 
 ```{r pairs of gpu}
 ggpairs(gpu_performance,columns=c(7,10,11,12,13)) +
-  ggtitle("Mean task running time vs GPU Info")
+  ggtitle("Mean task running time vs GPU metrics")
 ```
 
 Obviously, GPUs are divided into two categories by task duration and average memory utilization. The duration here refers to the average time each GPU takes to complete a task, the memory utilization refers to the average memory utilization percent by GPU in running these tasks. By using these two data, a clustering analysis of gpu can be carried out.
@@ -473,7 +473,7 @@ ggplot(gpu_task_part,aes(timestamp, gpuUtilPerc)) +
   ylab("gpuUtilPerc")
 ```
 
-We can clearly see the gaps between each task and the time spent on task scheduling. After calculating, the total time of task scheduling accounts for about 25% of the time that the GPU executes all tasks. Therefore, if we can find a way to improve the efficiency of GPU task scheduling, it will shorten the overall rendering time to a great extent.
+We can clearly see the gaps between each task and the time spent on task scheduling. After calculating, the total time of task scheduling accounts for about 26% of the time that the GPU executes all tasks. Therefore, if we can find a way to improve the efficiency of GPU task scheduling, it will shorten the overall rendering time to a great extent.
 
 # Conclusoin
 
