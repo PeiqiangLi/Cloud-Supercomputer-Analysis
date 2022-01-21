@@ -32,13 +32,13 @@ README file will be used to record the analysis steps of the project and the rep
 
 [The realistic terapixel visualization of the city of Newcastle upon Tyne](http://terapixel.wasabi.1024.s3.eu-central-1.wasabisys.com/vtour/index.html) is calculated by cloud-based supercomputer resources. In addition, the rendered 3D visual city also supports daily updates, hence it is necessary to evaluate the scalable architecture of cloud supercomputer for optimal performance.
 
-The image rendering process is mainly completed by GPU. Therefore, 
+The image rendering process is mainly completed by GPU. Therefore, the temperature, performance and power draw of GPU and the efficiency of computer task scheduling will have a great impact on the rendering efficiency. In order to improve the computing power of supercomputers, the analysis of the relationship between GPU and rendering tasks will be particularly important.
 
 The project detail see [link](https://github.com/NewcastleDataScience/StudentProjects202122/blob/master/TeraScope/Summary.md).
 
 # Data Understanding
 
-The dataset collected from the project link above. It contains the running information of ```r length(unique(gpu$hostname))`` 1024 GPU nodes. The running task is divided into three parts, which are used to render the visualization output of level 4, 8 and 12 respectively. In this dataset we can get detailed information about the performance timings of the render application, the performance of the GPU card, and which part of the image is being rendered in each task. The size of the dataset, the number of fields and the specific explanations are shown in the following tables:
+The dataset collected from the project link above. It contains the running information of `r length(unique(gpu$hostname))` GPU nodes. The running task is divided into three parts, which are used to render the visualization output of level 4, 8 and 12 respectively. In this dataset we can get detailed information about the performance timings of the render application, the performance of the GPU card, and which part of the image is being rendered in each task. The size of the dataset, the number of fields and the specific explanations are shown in the following tables:
 
 ```{r, include=FALSE}
 # dim(application.checkpoints)
@@ -134,28 +134,14 @@ head(task.x.y)
 
 # Data Preparation
 
-```r
-table(duplicated(application.checkpoints))
-table(duplicated(task.x.y))
-table(duplicated(gpu))
-```
-
 At the First, We need to make sure that the dataset is not affected by duplicate data. We found that the dataset of application.checkpoints have 2470 duplicate data, and the gpu dataset have 9 duplicate data. After remove the duplicate data the following information can be summarized.
-
-```r
-table(task.x.y$jobId)
-```
 
 1. The task.x.y dataset contains 65793 data.
     - These all 65793 tasks is undering the 3 jobs.
 2. The application.checkpoints dataset contains 657930 data.
-    - every task have ten events: "Tiling"-"START" and "STOP"
-  "Saving Config"-"START" and "START"
-  "Render"-"START" and "START"
-  "TotalRender"-"START" and "START"
-  "Uploading"-"START" and "START"
+    - every task have ten events: "Tiling", "Saving Config", "Render", "TotalRender", "Uploading". Each event have "START" and "STOP" two types.
 3. the gpu dataset contains 1543672 data.
-    - every gpu have a unique hostname.
+    - every gpu have a unique `hostname`, `gpuSerial` and `gpuUUID.`
 
 ```r
 unique(task.x.y$jobId)
@@ -167,15 +153,19 @@ length(unique(task.x.y[task.x.y$level==8,]$hostname))
 
 The 3 `jobId` corresponding to the rendering of 3 levels.
 
-- "1024-lvl12-7e026be3-5fd0-48ee-b7d1-abd61f747705", the rendering of level 12, have 65536 task records, 1024 gpu rendering.
-- "1024-lvl4-90b0c947-dcfc-4eea-a1ee-efe843b698df", the rendering of level 4, have 1 task records, 1 gpu rendering.
-- "1024-lvl8-5ad819e1-fbf2-42e0-8f16-a3baca825a63", the rendering of level 8, have 256 task records, 256 gpu rendering.
+- **jobId** "1024-lvl12-7e026be3-5fd0-48ee-b7d1-abd61f747705" is the rendering of level 12. This job has 65536 task records, and 1024 gpu rendering.
+- **jobId**" 1024-lvl4-90b0c947-dcfc-4eea-a1ee-efe843b698df"is the rendering of level 4. This job has 1 task records, and 1 gpu rendering.
+- **jobId** "1024-lvl8-5ad819e1-fbf2-42e0-8f16-a3baca825a63" is the rendering of level 8. This job has 256 task records, and 256 gpu rendering.
 
 # Data Analysis
 
+Before expanding the analysis task. 
+
 ## The event types dominate task runtimes
 
-```{r}
+A complete rendering process consists of four parts: `Saving Config`, `Render`, `Tiling` and `Uploading`. This four events of each rendering task, as well as their start and stop times, are recorded in the `application.checkpoints` dataset. We can find out which event dominates the task by comparing the duration of these four events in each task with the total rendering of this task. After calculating the duration of each event, we can compare the duration by boxplot.
+
+```{r boxplot}
 ggplot(task_time,aes( y = duration, x = eventName, fill = eventName )) +
   geom_boxplot() + 
   theme_ipsum(base_family = "Helvetica") +
@@ -183,36 +173,34 @@ ggplot(task_time,aes( y = duration, x = eventName, fill = eventName )) +
   xlab("") +
   ylab("")
 ```
+As we can see from the boxplot above, the running time of rendering occupies almost the duration of the whole task. Also, we can see a large number of outliers around the boxplot. That means the rendering time between different tasks will be quite different, and the distribution of rendering time is irregular.
 
 ```{r}
-mean_task_time %>% mutate(eventType = fct_reorder(eventType,duration)) %>%
-  ggplot(aes(x=eventType, y=duration)) +
-    geom_bar(stat="identity",fill="#1380A1") +
-    coord_flip() +
-    theme_ipsum(base_family = "Helvetica") +
-    theme(
-      panel.grid.minor.y = element_blank(),
-      panel.grid.major.y = element_blank(),
-      panel.grid.major.x = element_line(),
-      panel.grid.minor.x = element_line(),
-      plot.title = element_text(size=20),
-      legend.position="none"
-    ) +
-    ggtitle("Event types occupy task runtimes(s)") +
-    xlab("") +
-    ylab("")
-```
-
-```{r}
-ggpairs(gpu_performance,columns=c(7,10,11,12,13)) +
-  ggtitle("Mean task running time vs GPU Info")
+# mean_task_time %>% mutate(eventType = fct_reorder(eventType,duration)) %>%
+#   ggplot(aes(x=eventType, y=duration)) +
+#     geom_bar(stat="identity",fill="#1380A1") +
+#     coord_flip() +
+#     theme_ipsum(base_family = "Helvetica") +
+#     theme(
+#       panel.grid.minor.y = element_blank(),
+#       panel.grid.major.y = element_blank(),
+#       panel.grid.major.x = element_line(),
+#       panel.grid.minor.x = element_line(),
+#       plot.title = element_text(size=20),
+#       legend.position="none"
+#     ) +
+#     ggtitle("Event types occupy task runtimes(s)") +
+#     xlab("") +
+#     ylab("")
 ```
 
 ## Interplay between GPU temperature and performance
 
-It is very difficult to measure the performance of GPU. Therefore, the power draw, percent utilisation of GPU and percent utilisation of GPU memory and the average task rendering duration of each GPU are used to represent GPU performance. The average task rendering duration comes from the number of tasks rendered by the GPU and the sum of the duration of all these tasks.
+Before we look for the relationship between GPU temperature and performance, it is necessary to find a good target to measure the performance of GPU. In my opinion, the average execution time of each task by GPU is a good measure of its performance. The average task rendering duration comes from the number of tasks rendered by the GPU and the sum of the duration of all these tasks. In addition, temperature, power draw, core utilization and memory utilization of GPU also can be used to measure the performance of GPU.
 
-```{r,out.width = '80%'}
+The relationship between these indexes and GPU operating temperature is shown in the figure below:
+
+```{r GPU temperature performance, out.width = '80%'}
 gpu_utilization = gpu %>% filter(gpuUtilPerc !=0 & gpuMemUtilPerc !=0) %>%
   filter(hostname == '8b6a0eebc87b4cb2b0539e81075191b900000D') %>%
   select(hostname,powerDrawWatt,gpuTempC,gpuUtilPerc,gpuMemUtilPerc)
@@ -239,10 +227,8 @@ gpu_utilization = gpu %>% filter(gpuUtilPerc !=0 & gpuMemUtilPerc !=0) %>%
   ylab("Task mean duration") +
   xlab("Mean Temperature of the GPU in Celsius") +
   geom_point(alpha = 0.6)
-```
-
-```{r, out.width = '80%'}
-ggarrange(temp_power,temp_util, 
+  
+  ggarrange(temp_power,temp_util, 
           temp_mem, temp_task_duration,
           common.legend=T,
           labels = c("A", "B","C","D"),
@@ -250,11 +236,53 @@ ggarrange(temp_power,temp_util,
           # legend = "right"
 ```
 
-As a result, based on these four figures, there is no obvious correlation between GPU temperature and GPU performance.
+As a result, based on these four figures, there is no obvious correlation between GPU temperature and GPU performance. However, these four figures above is showing the average situation of all GPUs, so it's a good idea to find the relationship between GPU temperature and other targets in one particular gpu. Since the GPU is at a low temperature at the beginning of the first rendering task, the impact of the first rendering task on the statistical results will be removed here.
+
+```{r certain GPU temperature performance}
+temp_duration_gpu = gpu_task_part_average[2:(length(gpu_task_part_average$taskId)-1),] %>% 
+ggplot(mapping=aes(x = mean_temp, y = duration)) +
+  geom_smooth(formula = y ~ x, method='lm',color='red') +
+  stat_cor(method = "spearman") +
+  xlab("Temp when running this task") +
+  ylab("Task durations of this gpu") +
+  geom_point(alpha = 0.6)
+
+temp_power_gpu = ggplot(gpu_task_part_average[-1,],mapping=aes(x = mean_temp, y = mean_powet)) +
+  geom_smooth(formula = y ~ x, method='lm',color='red') +
+  stat_cor(method = "spearman") +
+  xlab("Temp when running this task") +
+  ylab("power of gpu") +
+  geom_point(alpha = 0.6)
+
+temp_gpu_core = ggplot(gpu_task_part_average[-1,],mapping=aes(x = mean_temp, y = mean_gpuPerc)) +
+  geom_smooth(formula = y ~ x, method='lm',color='red') +
+  stat_cor(method = "spearman") +
+  xlab("Temp when running this task") +
+  ylab("utilisation percent of gpu core") +
+  geom_point(alpha = 0.6)
+
+temp_gpu_mem = ggplot(gpu_task_part_average[-1],mapping=aes(x = mean_temp, y = mean_memory)) +
+  geom_smooth(formula = y ~ x, method='lm',color='red') +
+  stat_cor(method = "spearman") +
+  xlab("Temp when running this task") +
+  ylab("utilisation percent of gpu memory") +
+  geom_point(alpha = 0.6)
+
+ggarrange(temp_duration_gpu,temp_power_gpu, 
+          temp_gpu_core, temp_gpu_mem,
+          common.legend=T,
+          labels = c("A", "B","C","D"),
+          ncol = 2, nrow = 2)
+          # legend = "right"
+```
+
+Obviously, there is a strong linear relationship between GPU temperature and GPU power draw, core utilization and memory utilization. When the computing performance of GPU is enhanced, the temperature of GPU will also increase.
 
 ## Interplay between increased power draw and render time
 
-```{r}
+As before, firstly, we observe the relationship between the average rendering time and the average power draw of certain GPU. A GPU is performing dozens of rendering tasks, The power draw is the average power draw when  GPU rendering these dozens of tasks. And the duration is the average duration of these tasks.
+
+```{r power and duration, out.width = '80%'}
 power_duration1 = ggplot(data=gpu_performance,
        mapping=aes(x = mean_powerDrawWatt, y = each_task_duration)) +
   xlab("Mean power draw of rendering") +
@@ -288,9 +316,7 @@ power_duration4 = ggplot(mean_runing_powerDrawWatt,aes(powerDrawWatt, count)) +
   geom_bar(stat="identity") +
   xlab("Mean power draw of rendering") +
   ylab("counts of gpu")
-```
 
-```{r, out.width = '80%'}
 ggarrange(power_duration1,power_duration2, 
           power_duration3, power_duration4,
           common.legend=T,
@@ -298,6 +324,23 @@ ggarrange(power_duration1,power_duration2,
           ncol = 2, nrow = 2)
           # legend = "right"
 ```
+
+From the above figures, we can not find obviously relationship between pwer draw and task duration. But, we found the power draw of most GPUs are between 103-121 watts. Then, we take one gpu as an example, and find the relationship of durations and power draw.
+
+```{r}
+ggplot(gpu_task_part_average[-1,],mapping=aes(x = duration, y = mean_powet)) + 
+  geom_smooth(formula = y ~ x, method='lm',color='red') + 
+  stat_cor(method = "spearman") + 
+  xlab("duration of each task") + 
+  ylab("mean power draw of gpu running this task") + 
+  geom_point(alpha = 0.6)
+```
+
+Consequently, the longer the duration of the task, the higher its average power draw. There is a positive relationship between rendering duration and gpu power draw.
+
+### variation in computation requirements for particular tile
+
+When we take one GPU as an example, the duration of each task rendered by this GPU is distributed as shown in the figure below.
 
 ```{r}
 task_time %>% filter(hostname == '8b6a0eebc87b4cb2b0539e81075191b900000D' & eventName == "TotalRender") %>% select(duration,timestamp.y) %>%
@@ -307,10 +350,16 @@ task_time %>% filter(hostname == '8b6a0eebc87b4cb2b0539e81075191b900000D' & even
   ylab("task duration")
 # found some task have the same duration 4a79b6d2616049edbf06c6aa58ab426a000002
 ```
+Due to each task corresponds to the rendering of a specific tile. 
 
 ## Identify particular GPU cards 
 
-```{r K-means,fig.width=8,out.width='80%'}
+```{r}
+ggpairs(gpu_performance,columns=c(7,10,11,12,13)) +
+  ggtitle("Mean task running time vs GPU Info")
+```
+
+```{r K-means,out.width='80%'}
 par(mfrow=c(1,2)) 
 # ggplot(data=gpu_performance, 
 #        mapping=aes(x = each_task_duration, y = mean_gpuMemUtilPerc)) + 
@@ -324,7 +373,6 @@ duration_memory_pca = prcomp(x = duration_memory[,-1], scale. = T)
 km_duration_memory = kmeans(duration_memory[,-1],2,iter.max=50,nstart=20)
 plot(duration_memory_pca$x[,1], duration_memory_pca$x[,2], xlab="First PC", ylab="Second PC",
      col=km_duration_memory$cluster, pch=km_duration_memory$cluster, main = 'K-means Algorithm')
-
 
 plot(duration_memory$each_task_duration, duration_memory$mean_gpuMemUtilPerc, 
      xlab="each_task_duration", ylab="mean_gpuMemUtilPerc",
@@ -396,47 +444,14 @@ gpu_task_part %>%
   ylab("gpuUtilPerc")
 ```
 
-```{r}
-bbb = gpu_task_part_average[2:(length(gpu_task_part_average$taskId)-1),] %>% 
-ggplot(mapping=aes(x = duration, y = mean_temp)) +
-  geom_smooth(formula = y ~ x, method='lm',color='red') +
-  stat_cor(method = "spearman") +
-  xlab("Mean task duration of this gpu") +
-  ylab("temp when running this task") +
-  geom_point(alpha = 0.6)
 
-aaa = ggplot(gpu_task_part_average[-1,],mapping=aes(x = duration, y = mean_powet)) +
-  geom_smooth(formula = y ~ x, method='lm',color='red') +
-  stat_cor(method = "spearman") +
-  xlab("Mean task duration of this gpu") +
-  ylab("temp when running this task") +
-  geom_point(alpha = 0.6)
-
-ccc = ggplot(gpu_task_part_average[-1,],mapping=aes(x = duration, y = mean_gpuPerc)) +
-  geom_smooth(formula = y ~ x, method='lm',color='red') +
-  stat_cor(method = "spearman") +
-  xlab("Mean task duration of this gpu") +
-  ylab("temp when running this task") +
-  geom_point(alpha = 0.6)
-
-ddd = ggplot(gpu_task_part_average[-1],mapping=aes(x = duration, y = mean_memory)) +
-  geom_smooth(formula = y ~ x, method='lm',color='red') +
-  stat_cor(method = "spearman") +
-  xlab("Mean task duration of this gpu") +
-  ylab("temp when running this task") +
-  geom_point(alpha = 0.6)
-
-ggarrange(aaa,bbb, 
-          ccc, ddd,
-          common.legend=T,
-          labels = c("A", "B","C","D"),
-          ncol = 2, nrow = 2)
-          # legend = "right"
+```{r, out.width='80%'}
+ggplot(data=task.x.y_duration, aes(x=x, y=y, color = duration)) +
+  geom_point(size=1)
 ```
 
-
-
 # Conclusoin
+
 
 
 

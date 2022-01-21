@@ -1,3 +1,9 @@
+commit a32c30cdefce38577586525e7ac1e7c43f86abe0
+Author: peiqiangli <peiqiang02@126.com>
+Date:   Thu Jan 20 17:03:44 2022 +0000
+
+    update the gpu performance info
+
 commit 9fdab2bdbd643f5f09229f292bf80f9bc933b171
 Author: peiqiangli <peiqiang02@126.com>
 Date:   Thu Jan 20 02:52:50 2022 +0000

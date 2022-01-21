@@ -5,7 +5,7 @@ task.x.y = task.x.y %>%
   left_join((application.checkpoints %>% select(hostname,taskId) %>% distinct(taskId,.keep_all = TRUE)),
             by='taskId')
 
-# find the start and stop time
+# find the start and stop time and calculate the running duration
 task_time = merge(application.checkpoints %>% 
                     filter(eventType == "STOP") %>%
                     select(timestamp,taskId,eventName,eventType),
@@ -13,9 +13,8 @@ task_time = merge(application.checkpoints %>%
                     filter(eventType == "START") %>%
                     select(timestamp,eventName,eventType,taskId), 
                   by = c("eventName","taskId"),
-                  all = T)
-# calculate the running time
-task_time = task_time %>% mutate(duration = as.numeric(timestamp.x)-as.numeric(timestamp.y))
+                  all = T)  %>% mutate(duration = as.numeric(timestamp.x)-as.numeric(timestamp.y))
+
 # add the task gpu
 task_time = task_time %>% left_join(task.x.y %>% select(taskId,hostname), by='taskId')
 

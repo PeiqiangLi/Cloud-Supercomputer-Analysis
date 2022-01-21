@@ -45,6 +45,10 @@ gpu_task_example = gpu %>%
            timestamp<= task_example$timestamp.x & timestamp>=task_example$timestamp.y) %>%
   arrange(timestamp)
 
+task.x.y_duration = task.x.y %>% 
+  left_join(task_time %>% filter(eventName == "TotalRender") %>% 
+              select(taskId,duration),by="taskId")
+
 # task_examples = task_time %>% 
 #   filter(eventName == "TotalRender" & hostname == '4a79b6d2616049edbf06c6aa58ab426a000002') %>%
 #   select(taskId,timestamp.x,timestamp.y,duration)
