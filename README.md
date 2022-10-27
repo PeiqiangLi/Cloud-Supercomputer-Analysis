@@ -1,39 +1,25 @@
-# Cloud_Computing
+# Structured Abstract
 
-Welcome to ProjectTemplate!
+**Context:** High quality terapixel visualization rendering is possible through cloud supercomputers. In order to produce a terapixel 3D city visualization supporting daily updates requires very high computational power. Therefore, the performance evaluation of cloud supercomputer architecture becomes particularly important.
 
-This file introduces you to ProjectTemplate, but you should eventually replace
-the contents of this file with an introduction to your project. People who
-work with your data in the future will thank you for it, including your future
-self.
+**Objective:** The purpose of this project is to apply exploratory data analysis to study the relationship between the system GPU metrics and rendering performance under the application checkpoint. In addition, the results of data analysis will be used to improve the rendering performance of the cloud computing system.
 
-ProjectTemplate is an R package that helps you organize your statistical
-analysis projects. Since you're reading this file, we'll assume that you've
-already called `create.project()` to set up this project and all of its
-contents.
+**Method:** The project adopts **CRISP-DM** data exploratory analysis process, and **ProjectTemplate** provides a perfect data science development template. `dplyr` of the `tidyverse` package as a tool for efficient data cleaning and processing. `ggplot` is used to draw beautiful graph to show the best results of analysis.
 
-To load your new project, you'll first need to `setwd()` into the directory
-where this README file is located. Then you need to run the following two
-lines of R code:
+**Results:** The task scheduling process of GPU takes up a lot of task execution time. The most distinguishing indicator of gpu performance is the memory usage in the running state of the gpu. Different tiles of images have different computational requirements. By establishing the model, the performance of GPU can be classified with GPU serial number to a certain extent.
 
-	library('ProjectTemplate')
-	load.project()
+**Novelty:** The method of exploratory data analysis has been adopted to analyze the relationship between rendering performance and GPU metrics. In the analysis process, I first compare the overall situation, and then use a specific GPU as an example for comparison. Moreover, machine learning regression models are adopted to distinguish between different performance GPU types.
 
-After you enter the second line of code, you'll see a series of automated
-messages as ProjectTemplate goes about doing its work. This work involves:
-* Reading in the global configuration file contained in `config`.
-* Loading any R packages you listed in the configuration file.
-* Reading in any datasets stored in `data` or `cache`.
-* Preprocessing your data using the files in the `munge` directory.
+## Key Images
 
-Once that's done, you can execute any code you'd like. For every analysis
-you create, we'd recommend putting a separate file in the `src` directory.
-If the files start with the two lines mentioned above:
+\begin{figure}
+    \centering
+    \includegraphics[width=0.7\textwidth]{../graphs/KeyImages.png}
+    \caption{Rendering time required for each tile corresponds to the coordinates of the pixel}
+\end{figure}
 
-	library('ProjectTemplate')
-	load.project()
-
-You'll have access to all of your data, already fully preprocessed, and
-all of the libraries you want to use.
-
-For more details about ProjectTemplate, see http://projecttemplate.net
+\begin{figure}
+    \centering
+    \includegraphics[width=0.8\textwidth]{../graphs/duration_metrics.png}
+    \caption{Mean task running time vs GPU metrics}
+\end{figure}
