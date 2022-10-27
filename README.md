@@ -12,14 +12,9 @@
 
 ## Key Images
 
-\begin{figure}
-    \centering
-    \includegraphics[width=0.7\textwidth]{../graphs/KeyImages.png}
-    \caption{Rendering time required for each tile corresponds to the coordinates of the pixel}
-\end{figure}
+![image](https://github.com/PeiqiangLi/Cloud-Supercomputer-Analysis/blob/master/graphs/keyImages.png)
 
-\begin{figure}
-    \centering
-    \includegraphics[width=0.8\textwidth]{../graphs/duration_metrics.png}
-    \caption{Mean task running time vs GPU metrics}
-\end{figure}
+
+![image](https://github.com/PeiqiangLi/Cloud-Supercomputer-Analysis/blob/master/graphs/duration_metrics.png)
+
+## Report folder for details
