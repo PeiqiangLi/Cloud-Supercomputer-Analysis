@@ -17,4 +17,6 @@
 
 ![image](https://github.com/PeiqiangLi/Cloud-Supercomputer-Analysis/blob/master/graphs/duration_metrics.png)
 
-## Report folder for details
+---
+
+See report folder for details
